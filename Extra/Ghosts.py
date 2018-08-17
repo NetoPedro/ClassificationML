@@ -39,14 +39,26 @@ class CreateExtraFeatures(BaseEstimator,TransformerMixin):
         X['flesh_soul'] = X['rotting_flesh'] * X['has_soul']
         return np.c_[X]
 
+class DataFrameSelector(BaseEstimator, TransformerMixin):
+    def __init__(self, attribute_names):
+        self.attribute_names = attribute_names
+    def fit(self, X, y=None):
+        return self
+    def transform(self, X):
+        return X[self.attribute_names]
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+num_attributes = ["bone_length","rotting_flesh","hair_length","has_soul"]
+cat_attributes = ["color"]
+
 pipeline_num = Pipeline([
+    ("selector",DataFrameSelector(num_attributes)),
     ("extra_feat",CreateExtraFeatures())
 ])
 
 pipeline_cat = Pipeline([
+    ("selector", DataFrameSelector(cat_attributes)),
     ("categorical_encoder", OneHotEncoder(sparse=False))
 ])
 
@@ -56,9 +68,7 @@ full_pipeline = FeatureUnion([
     ("pip,num",pipeline_num),
     ("pip_cat",pipeline_cat)
 ])
-num_attributes = ["bone_length","rotting_flesh","hair_length","has_soul"]
-cat_attributes = ["color"]
-X_train= full_pipeline.fit_transform(X_train[num_attributes],X_train[cat_attributes].values)
+X_train= full_pipeline.fit_transform(X_train)
 
 X_test = X_train[371:]
 X_train = X_train[:371]
@@ -69,7 +79,7 @@ nn_clf = MLPClassifier(max_iter=3000)
 from sklearn.model_selection import GridSearchCV
 
 grid_params = [{"hidden_layer_sizes":range(3,20), "activation":['identity', 'logistic', 'tanh', 'relu'], "solver":["lbfgs","sgd","adam"],"learning_rate":["adaptive"]}]
-grid_search = GridSearchCV(nn_clf,param_grid=grid_params,cv=3,verbose=3)
+grid_search = GridSearchCV(nn_clf,param_grid=grid_params,cv=3,verbose=3, n_jobs=-1)
 
 grid_search.fit(X_train,y_train)
 
